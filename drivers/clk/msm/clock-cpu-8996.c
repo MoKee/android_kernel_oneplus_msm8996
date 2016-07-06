@@ -143,9 +143,9 @@ static int acdtd_val_pwrcl = 0x00006A11;
 static int acdtd_val_perfcl = 0x00006A11;
 static int dvmrc_val = 0x000E0F0F;
 static int acdsscr_val = 0x00000601;
-static int acdcr_val_pwrcl = 0x002D5FFD;
+static int acdcr_val_pwrcl = 0x002C5FFD;
 module_param(acdcr_val_pwrcl, int, 0444);
-static int acdcr_val_perfcl = 0x002D5FFD;
+static int acdcr_val_perfcl = 0x002C5FFD;
 module_param(acdcr_val_perfcl, int, 0444);
 int enable_acd = 1;
 module_param(enable_acd, int, 0444);
@@ -238,6 +238,7 @@ static struct alpha_pll_clk perfcl_alt_pll = {
 	.post_div_config = 0x100, /* Div-2 */
 	.config_ctl_val = 0x4001051B,
 	.offline_bit_workaround = true,
+	.no_irq_dis = true,
 	.c = {
 		.always_on = true,
 		.parent = &alpha_xo_ao.c,
@@ -300,6 +301,7 @@ static struct alpha_pll_clk pwrcl_alt_pll = {
 	.post_div_config = 0x100, /* Div-2 */
 	.config_ctl_val = 0x4001051B,
 	.offline_bit_workaround = true,
+	.no_irq_dis = true,
 	.c = {
 		.always_on = true,
 		.dbg_name = "pwrcl_alt_pll",
@@ -551,7 +553,13 @@ static enum handoff cpu_clk_8996_handoff(struct clk *c)
 
 static long cpu_clk_8996_round_rate(struct clk *c, unsigned long rate)
 {
-	return clk_round_rate(c->parent, rate);
+	int i;
+
+	for (i = 0; i < c->num_fmax; i++)
+		if (rate <= c->fmax[i])
+			return clk_round_rate(c->parent, c->fmax[i]);
+
+	return clk_round_rate(c->parent, c->fmax[c->num_fmax - 1]);
 }
 
 static unsigned long alt_pll_perfcl_freqs[] = {
