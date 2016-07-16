@@ -1311,6 +1311,8 @@ DECLARE_BITMAP(all_cluster_ids, NR_CPUS);
 struct sched_cluster *sched_cluster[NR_CPUS];
 int num_clusters;
 
+unsigned int max_power_cost = 1;
+
 static struct sched_cluster init_cluster = {
 	.list			=	LIST_HEAD_INIT(init_cluster.list),
 	.id			=	0,
@@ -1414,6 +1416,7 @@ static void sort_clusters(void)
 {
 	struct sched_cluster *cluster;
 	struct list_head new_head;
+	unsigned int tmp_max = 1;
 
 	INIT_LIST_HEAD(&new_head);
 
@@ -1422,7 +1425,11 @@ static void sort_clusters(void)
 							       max_task_load());
 		cluster->min_power_cost = power_cost(cluster_first_cpu(cluster),
 							       0);
+
+		if (cluster->max_power_cost > tmp_max)
+			tmp_max = cluster->max_power_cost;
 	}
+	max_power_cost = tmp_max;
 
 	move_list(&new_head, &cluster_head, true);
 
@@ -8264,7 +8271,8 @@ int set_cpus_allowed_ptr(struct task_struct *p, const struct cpumask *new_mask)
 	if (cpumask_equal(&p->cpus_allowed, new_mask))
 		goto out;
 
-	if (!cpumask_intersects(new_mask, cpu_active_mask)) {
+	dest_cpu = cpumask_any_and(cpu_active_mask, new_mask);
+	if (dest_cpu >= nr_cpu_ids) {
 		ret = -EINVAL;
 		goto out;
 	}
@@ -8275,7 +8283,6 @@ int set_cpus_allowed_ptr(struct task_struct *p, const struct cpumask *new_mask)
 	if (cpumask_test_cpu(task_cpu(p), new_mask))
 		goto out;
 
-	dest_cpu = cpumask_any_and(cpu_active_mask, new_mask);
 	if (task_running(rq, p) || p->state == TASK_WAKING) {
 		struct migration_arg arg = { p, dest_cpu };
 		/* Need help from migration thread: drop lock and wait. */

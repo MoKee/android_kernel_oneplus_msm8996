@@ -518,6 +518,7 @@ static int cluster_configure(struct lpm_cluster *cluster, int idx,
 			goto failed_set_mode;
 		}
 
+		us = us + 1;
 		do_div(us, USEC_PER_SEC/SCLK_HZ);
 		msm_mpm_enter_sleep(us, from_idle, cpumask);
 	}
@@ -837,10 +838,8 @@ static int lpm_cpuidle_select(struct cpuidle_driver *drv,
 
 	idx = cpu_power_select(dev, cluster->cpu);
 
-	if (idx < 0) {
-		local_irq_enable();
+	if (idx < 0)
 		return -EPERM;
-	}
 
 	return idx;
 }
@@ -854,6 +853,9 @@ static int lpm_cpuidle_enter(struct cpuidle_device *dev,
 	int64_t start_time = ktime_to_ns(ktime_get()), end_time;
 	struct power_params *pwr_params;
 
+	if (idx < 0)
+		return -EINVAL;
+
 	pwr_params = &cluster->cpu->levels[idx].pwr;
 	sched_set_cpu_cstate(smp_processor_id(), idx + 1,
 		pwr_params->energy_overhead, pwr_params->latency_us);
@@ -861,11 +863,11 @@ static int lpm_cpuidle_enter(struct cpuidle_device *dev,
 	cpu_prepare(cluster, idx, true);
 	cluster_prepare(cluster, cpumask, idx, true, ktime_to_ns(ktime_get()));
 
-	if (need_resched() || (idx < 0))
-		goto exit;
-
 	trace_cpu_idle_enter(idx);
 	lpm_stats_cpu_enter(idx, start_time);
+
+	if (need_resched())
+		goto exit;
 
 	if (!use_psci) {
 		if (idx > 0)
@@ -1096,7 +1098,6 @@ static int lpm_suspend_enter(suspend_state_t state)
 	struct lpm_cpu *lpm_cpu = cluster->cpu;
 	const struct cpumask *cpumask = get_cpu_mask(cpu);
 	int idx;
-	int64_t time = ktime_to_ns(__ktime_get());
 
 	for (idx = lpm_cpu->nlevels - 1; idx >= 0; idx--) {
 
@@ -1108,7 +1109,7 @@ static int lpm_suspend_enter(suspend_state_t state)
 		return 0;
 	}
 	cpu_prepare(cluster, idx, false);
-	cluster_prepare(cluster, cpumask, idx, false, time);
+	cluster_prepare(cluster, cpumask, idx, false, 0);
 	if (idx > 0)
 		update_debug_pc_event(CPU_ENTER, idx, 0xdeaffeed,
 					0xdeaffeed, false);
@@ -1130,8 +1131,7 @@ static int lpm_suspend_enter(suspend_state_t state)
 		update_debug_pc_event(CPU_EXIT, idx, true, 0xdeaffeed,
 					false);
 
-	time = ktime_to_ns(__ktime_get());
-	cluster_unprepare(cluster, cpumask, idx, false, time);
+	cluster_unprepare(cluster, cpumask, idx, false, 0);
 	cpu_unprepare(cluster, idx, false);
 	return 0;
 }

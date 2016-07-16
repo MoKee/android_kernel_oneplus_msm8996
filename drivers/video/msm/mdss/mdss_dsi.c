@@ -33,6 +33,8 @@
 #include "mdss_debug.h"
 #include "mdss_dsi_phy.h"
 #include "mdss_dba_utils.h"
+#include "mdss_livedisplay.h"
+
 
 #define XO_CLK_RATE	19200000
 #define CMDLINE_DSI_CTL_NUM_STRING_LEN 2
@@ -2559,19 +2561,8 @@ static int mdss_dsi_event_handler(struct mdss_panel_data *pdata,
 					&ctrl_pdata->dba_work, HZ);
 		}
 		break;
-	case MDSS_EVENT_PANEL_SET_ACL:
-		ctrl_pdata->acl_mode = (int)(unsigned long) arg;
-		mdss_dsi_panel_set_acl(ctrl_pdata,(int)(unsigned long) ctrl_pdata->acl_mode);
-		break;
-	case MDSS_EVENT_PANEL_GET_ACL:
-		rc = ctrl_pdata->acl_mode;
-		break;
-	case MDSS_EVENT_PANEL_SET_MAX_BRIGHTNESS:
-		ctrl_pdata->max_brightness_level= (int)(unsigned long) arg;
-		mdss_dsi_panel_set_max_brightness(ctrl_pdata,(int)(unsigned long) ctrl_pdata->max_brightness_level);
-		break;
-	case MDSS_EVENT_PANEL_GET_MAX_BRIGHTNESS:
-		rc = mdss_dsi_panel_get_max_brightness(ctrl_pdata);
+	case MDSS_EVENT_UPDATE_LIVEDISPLAY:
+		rc = mdss_livedisplay_update(ctrl_pdata, (int)(unsigned long) arg);
 		break;
 	default:
 		pr_debug("%s: unhandled event=%d\n", __func__, event);
@@ -2911,7 +2902,7 @@ static int mdss_dsi_cont_splash_config(struct mdss_panel_info *pinfo,
 				       struct mdss_dsi_ctrl_pdata *ctrl_pdata)
 {
 	void *clk_handle;
-	int rc = 0;
+	int rc = 0, data = 0;
 
 	if (pinfo->cont_splash_enabled) {
 		rc = mdss_dsi_panel_power_ctrl(&(ctrl_pdata->panel_data),
@@ -2940,8 +2931,12 @@ static int mdss_dsi_cont_splash_config(struct mdss_panel_info *pinfo,
 		mdss_dsi_read_hw_revision(ctrl_pdata);
 		mdss_dsi_read_phy_revision(ctrl_pdata);
 		ctrl_pdata->is_phyreg_enabled = 1;
-		if (pinfo->type == MIPI_CMD_PANEL)
-			mdss_dsi_set_burst_mode(ctrl_pdata);
+		if ((ctrl_pdata->shared_data->hw_rev >= MDSS_DSI_HW_REV_103)
+			&& (pinfo->type == MIPI_CMD_PANEL)) {
+			data = MIPI_INP(ctrl_pdata->ctrl_base + 0x1b8);
+			if (data & BIT(16))
+				ctrl_pdata->burst_mode_enabled = true;
+		}
 	} else {
 		/* Turn on the clocks to read the DSI and PHY revision */
 		mdss_dsi_clk_ctrl(ctrl_pdata, ctrl_pdata->dsi_clk_handle,
