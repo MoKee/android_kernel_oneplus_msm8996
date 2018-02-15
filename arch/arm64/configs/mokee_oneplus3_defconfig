@@ -1,4 +1,4 @@
-CONFIG_LOCALVERSION="-lineageos"
+CONFIG_LOCALVERSION="-mokee"
 # CONFIG_SWAP is not set
 # CONFIG_USELIB is not set
 CONFIG_AUDIT=y
