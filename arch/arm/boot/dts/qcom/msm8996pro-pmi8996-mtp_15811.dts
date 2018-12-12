@@ -36,10 +36,18 @@
 	qcom,init-voltage = <1030000>;
 };
 
-&msm_gpu {
-	cm,firmware-name = "a530_zap-pro";
-};
-
 &pil_gpu {
 	qcom,firmware-name = "a530_zap-pro";
+};
+
+&msm_gpu {
+	qcom,firmware-name = "a530_zap-pro";
+};
+
+&soc {
+	qcom,bcl {
+		qcom,ibat-monitor {
+			qcom,mitigation-freq-khz = <1132800>;
+		};
+	};
 };
