@@ -23,7 +23,6 @@ ifeq ($(KERNEL_BUILD),1)
 	WLAN_OPEN_SOURCE := 1
 endif
 
-ifeq ($(KERNEL_BUILD), 0)
 	# These are configurable via Kconfig for kernel-based builds
 	# Need to explicitly configure for Android-based builds
 
@@ -76,7 +75,7 @@ ifeq ($(KERNEL_BUILD), 0)
 	# way no critical debug feature will be enabled for perf and shipment
 	# builds. Other OEMs are also protected using the TARGET_BUILD_VARIANT
 	# config.
-	ifneq ($(TARGET_BUILD_VARIANT), user)
+	ifeq ($(TARGET_BUILD_VARIANT), eng)
 		ifeq ($(CONFIG_SLUB_DEBUG_ON), y)
 			CONFIG_DPTRACE_ENABLE := y
 		else
@@ -169,12 +168,12 @@ ifeq ($(KERNEL_BUILD), 0)
 	CONFIG_WLAN_FEATURE_DSRC := y
 	endif
 
-endif
-
 ifeq ($(CONFIG_ARCH_QCS405), y)
 	CONFIG_TXRX_PERF := y
 	CONFIG_NON_QC_PLATFORM := n
 	CONFIG_CUSTOMIZE_SDIO_CCCR_VALUE := y
+	CONFIG_MULTI_IF_LOG := y
+	CONFIG_NETWORK_PHY_TIMESTAMPING := y
 endif
 
 #Enable Power debugfs feature only if debug_fs is enabled
@@ -1723,6 +1722,10 @@ ifeq ($(CONFIG_WLAN_SYNC_TSF_PTP), y)
 CDEFINES += -DWLAN_FEATURE_TSF_PTP
 endif
 
+ifeq ($(CONFIG_ARCH_QCS405), y)
+CDEFINES += -DCONFIG_QTIME_TSF_SHOW
+endif
+
 # Enable target dump for non-qualcomm platform
 ifeq ($(CONFIG_NON_QC_PLATFORM), y)
 CDEFINES += -DCONFIG_NON_QC_PLATFORM
@@ -1772,6 +1775,26 @@ ifeq ($(CONFIG_ARCH_MSM8937), y)
 CDEFINES += -DTX_COMPLETION_THREAD
 CDEFINES += -DMSM8976_TCP_PERF
 CDEFINES += -DACS_FW_REPORT_PARAM
+endif
+
+ifeq ($(CONFIG_SUB_20_MHZ), y)
+CDEFINES += -DFEATURE_WLAN_SUB_20_MHZ
+endif
+
+ifeq ($(CONFIG_RX_HOLE_DETCTION), y)
+CDEFINES += -DHL_RX_AGGREGATION_HOLE_DETCTION
+endif
+
+ifeq ($(CONFIG_MAC_NOTIFICATION), y)
+CDEFINES += -DMAC_NOTIFICATION_FEATURE
+endif
+
+ifeq ($(CONFIG_ACS_FW_REPORT_PARAM), y)
+CDEFINES += -DACS_FW_REPORT_PARAM
+endif
+
+ifeq ($(CONFIG_CHAN_HOPPING_ALL_BAND), y)
+CDEFINES += -DCHANNEL_HOPPING_ALL_BANDS
 endif
 
 ifeq ($(CONFIG_ARCH_MSM8953), y)
@@ -1897,7 +1920,7 @@ ifneq ($(MODNAME), wlan)
 CHIP_NAME ?= $(MODNAME)
 CDEFINES += -DMULTI_IF_NAME=\"$(CHIP_NAME)\"
 ifeq ($(CONFIG_ARCH_QCS405), y)
-CDEFINES += -DIFNAME_SUFFIX=\"tf\"
+CDEFINES += -DIFNAME_SUFFIX=\"sr\"
 CDEFINES += -DIFNAME_SUFFIX_SIZE=2
 else
 CDEFINES += -DIFNAME_SUFFIX=\"\"
@@ -1909,6 +1932,11 @@ endif
 else
 CDEFINES += -DIFNAME_SUFFIX=\"\"
 CDEFINES += -DIFNAME_SUFFIX_SIZE=0
+endif
+
+ifeq ($(CONFIG_ARCH_QCS405), y)
+CDEFINES += -DFW_RAM_DUMP_TO_FILE
+CDEFINES += -DMDM_SAP_11AC_NO_OVERRIDE
 endif
 
 # WLAN_HDD_ADAPTER_MAGIC must be unique for all instances of the driver on the
